@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestão de Plantões & Extras - Portaria</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Supabase JS Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        oneui: {
+                            bgLight: '#F3F4F8',
+                            cardLight: '#FFFFFF',
+                            bgDark: '#121318',
+                            cardDark: '#1E2028',
+                            accent: '#2C63EE',
+                            accentHover: '#1B4FD0',
+                        },
+                        porter: {
+                            jefferson: {
+                                bg: '#E8F5E9',
+                                border: '#A5D6A7',
+                                text: '#2E7D32',
+                                darkBg: '#1B3821',
+                                darkBorder: '#2E7D32',
+                                darkText: '#A5D6A7',
+                                badge: '#4CAF50'
+                            },
+                            sergio: {
+                                bg: '#FFEBEE',
+                                border: '#FFCDD2',
+                                text: '#C62828',
+                                darkBg: '#3B1A1E',
+                                darkBorder: '#C62828',
+                                darkText: '#EF9A9A',
+                                badge: '#E53935'
+                            },
+                            gerson: {
+                                bg: '#E3F2FD',
+                                border: '#BBDEFB',
+                                text: '#1565C0',
+                                darkBg: '#13283D',
+                                darkBorder: '#1565C0',
+                                darkText: '#90CAF9',
+                                badge: '#1E88E5'
+                            }
+                        }
+                    },
+                    borderRadius: {
+                        'oneui': '28px',
+                        'oneui-sm': '18px',
+                    },
+                    boxShadow: {
+                        'oneui': '0 10px 30px -5px rgba(0, 0, 0, 0.05)',
+                        'oneui-hover': '0 20px 40px -10px rgba(0, 0, 0, 0.12)',
+                        'glow': '0 0 15px rgba(44, 99, 238, 0.35)',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        * {
+            transition: background-color 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+                        border-color 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+                        transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
+                        box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+                        opacity 0.2s linear;
+        }
+
+        .glass-oneui {
+            background: rgba(255, 255, 255, 0.72);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+        }
+
+        .dark .glass-oneui {
+            background: rgba(30, 32, 40, 0.75);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+        }
+
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        @keyframes springPop {
+            0% { transform: scale(0.95); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .animate-spring {
+            animation: springPop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+
+        @media print {
+            .no-print { display: none !important; }
+            body { background: white !important; color: black !important; }
+            .print-full { width: 100% !important; margin: 0 !important; padding: 0 !important; }
+            .glass-oneui { background: white !important; backdrop-filter: none !important; }
+            .shadow-oneui, .shadow-oneui-hover { box-shadow: none !important; }
+        }
+    </style>
+</head>
+<body class="bg-oneui-bgLight dark:bg-oneui-bgDark text-gray-800 dark:text-gray-100 min-h-screen font-sans pb-12 transition-colors duration-300">
+
+    <!-- Top One UI Header -->
+    <header class="sticky top-0 z-30 glass-oneui border-b border-gray-200/50 dark:border-gray-800/50 px-4 sm:px-8 py-4 mb-6">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+            <div class="flex items-center gap-3 w-full md:w-auto">
+                <div class="w-12 h-12 rounded-2xl bg-oneui-accent/10 dark:bg-oneui-accent/20 flex items-center justify-center text-oneui-accent font-bold text-xl shadow-inner">
+                    <i class="fa-solid me-0 fa-calendar-check text-2xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl sm:text-2xl font-bold tracking-tight">Escala de Plantões & Extras</h1>
+                    <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 font-medium">Regime 12x36 • Controle de Cobertura de Vagas</p>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-between md:justify-end gap-2 w-full md:w-auto no-print">
+                <button id="themeToggleBtn" onclick="toggleDarkMode()" class="p-3 rounded-2xl bg-gray-200/70 dark:bg-gray-800/80 hover:bg-gray-300 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 flex items-center justify-center active:scale-90" title="Alternar Tema">
+                    <i id="themeIcon" class="fa-solid fa-moon text-lg"></i>
+                </button>
+
+                <button onclick="window.print()" class="px-4 py-2.5 rounded-2xl bg-gray-200/70 dark:bg-gray-800/80 hover:bg-gray-300 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 font-semibold text-sm flex items-center gap-2 active:scale-95">
+                    <i class="fa-solid fa-print"></i>
+                    <span class="hidden sm:inline">Imprimir / Salvar PDF</span>
+                </button>
+
+                <button onclick="resetDataPrompt()" class="px-3 py-2.5 rounded-2xl bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 text-sm font-semibold flex items-center gap-1.5 active:scale-95" title="Restaurar Escala Padrão">
+                    <i class="fa-solid fa-rotate-left"></i>
+                    <span class="hidden sm:inline">Resetar</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6">
+
+        <!-- KPI / Stats Summary Cards -->
+        <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div class="p-5 rounded-oneui bg-oneui-cardLight dark:bg-oneui-cardDark border border-gray-100 dark:border-gray-800 shadow-oneui hover:shadow-oneui-hover relative overflow-hidden group">
+                <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-green-500/10 rounded-full blur-2xl group-hover:bg-green-500/20 transition-all"></div>
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-bold uppercase tracking-wider text-green-600 dark:text-green-400 flex items-center gap-1.5">
+                        <span class="w-2.5 h-2.5 rounded-full bg-green-500 inline-block"></span> Jefferson (Noite)
+                    </span>
+                    <span class="text-xs px-2.5 py-1 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 font-bold">EXTRAS</span>
+                </div>
+                <div class="flex items-baseline gap-2">
+                    <span id="statJeffersonExtras" class="text-3xl font-extrabold tracking-tight">0</span>
+                    <span class="text-sm font-medium text-gray-500">plantões extras</span>
+                </div>
+                <p class="text-xs text-gray-400 dark:text-gray-500 mt-2 flex items-center gap-1">
+                    <i class="fa-solid fa-clock"></i> <span id="statJeffersonHours">0h</span> extras acumuladas
+                </p>
+            </div>
+
+            <div class="p-5 rounded-oneui bg-oneui-cardLight dark:bg-oneui-cardDark border border-gray-100 dark:border-gray-800 shadow-oneui hover:shadow-oneui-hover relative overflow-hidden group">
+                <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-blue-500/10 rounded-full blur-2xl group-hover:bg-blue-500/20 transition-all"></div>
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
+                        <span class="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block"></span> Gérson Felipe (Dia)
+                    </span>
+                    <span class="text-xs px-2.5 py-1 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-bold">EXTRAS</span>
+                </div>
+                <div class="flex items-baseline gap-2">
+                    <span id="statGersonExtras" class="text-3xl font-extrabold tracking-tight">0</span>
+                    <span class="text-sm font-medium text-gray-500">plantões extras</span>
+                </div>
+                <p class="text-xs text-gray-400 dark:text-gray-500 mt-2 flex items-center gap-1">
+                    <i class="fa-solid fa-clock"></i> <span id="statGersonHours">0h</span> extras acumuladas
+                </p>
+            </div>
+
+            <div class="p-5 rounded-oneui bg-oneui-cardLight dark:bg-oneui-cardDark border border-gray-100 dark:border-gray-800 shadow-oneui hover:shadow-oneui-hover relative overflow-hidden group">
+                <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-rose-500/10 rounded-full blur-2xl group-hover:bg-rose-500/20 transition-all"></div>
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400 flex items-center gap-1.5">
+                        <span class="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block"></span> Sérgio (Noite)
+                    </span>
+                    <span class="text-xs px-2.5 py-1 rounded-full bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300 font-bold">REGULAR</span>
+                </div>
+                <div class="flex items-baseline gap-2">
+                    <span id="statSergioShifts" class="text-3xl font-extrabold tracking-tight">0</span>
+                    <span class="text-sm font-medium text-gray-500">plantões normais</span>
+                </div>
+                <p class="text-xs text-gray-400 dark:text-gray-500 mt-2 flex items-center gap-1">
+                    <i class="fa-solid fa-moon"></i> Turno Noturno Fixo
+                </p>
+            </div>
+
+            <div class="p-5 rounded-oneui bg-oneui-cardLight dark:bg-oneui-cardDark border border-gray-100 dark:border-gray-800 shadow-oneui hover:shadow-oneui-hover relative overflow-hidden group">
+                <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-amber-500/10 rounded-full blur-2xl group-hover:bg-amber-500/20 transition-all"></div>
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                        <i class="fa-solid fa-chart-pie"></i> Cobertura do Mês
+                    </span>
+                    <span class="text-xs px-2.5 py-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 font-bold">100%</span>
+                </div>
+                <div class="flex items-baseline gap-2">
+                    <span id="statTotalExtras" class="text-3xl font-extrabold tracking-tight">0</span>
+                    <span class="text-sm font-medium text-gray-500">total de extras</span>
+                </div>
+                <p class="text-xs text-gray-400 dark:text-gray-500 mt-2 flex items-center gap-1">
+                    <i class="fa-solid fa-check-circle text-green-500"></i> Nenhum turno vago no mês
+                </p>
+            </div>
+        </section>
+
+        <!-- Controls Bar -->
+        <section class="p-4 sm:p-5 rounded-oneui bg-oneui-cardLight dark:bg-oneui-cardDark border border-gray-100 dark:border-gray-800 shadow-oneui mb-6 flex flex-col md:flex-row items-center justify-between gap-4 no-print">
+            <div class="flex items-center justify-between w-full md:w-auto gap-3">
+                <div class="text-left">
+                    <h2 id="currentMonthLabel" class="text-lg font-bold tracking-tight capitalize">Novembro 2026</h2>
+                    <p id="currentMonthYearSub" class="text-xs text-gray-400 font-medium">Escala Ativa</p>
+                </div>
+                <button onclick="openNextMonthModal()" class="px-4 py-2.5 rounded-2xl bg-oneui-accent hover:bg-oneui-accentHover text-white text-xs sm:text-sm font-bold flex items-center gap-2 shadow-lg shadow-blue-500/20 active:scale-95">
+                    <i class="fa-solid fa-calendar-plus"></i>
+                    <span>Selecionar / Trocar Mês</span>
+                </button>
+            </div>
+
+            <!-- Filter Buttons -->
+            <div class="flex items-center gap-1 bg-gray-100 dark:bg-gray-800/80 p-1.5 rounded-2xl w-full md:w-auto overflow-x-auto no-scrollbar">
+                <button onclick="setFilter('all')" id="filter-all" class="filter-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm">
+                    Todos os Turnos
+                </button>
+                <button onclick="setFilter('jefferson')" id="filter-jefferson" class="filter-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white">
+                    <i class="fa-solid fa-circle text-green-500 text-[10px] me-1"></i> Apenas Jefferson
+                </button>
+                <button onclick="setFilter('gerson')" id="filter-gerson" class="filter-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white">
+                    <i class="fa-solid fa-circle text-blue-500 text-[10px] me-1"></i> Apenas Gérson Felipe
+                </button>
+                <button onclick="setFilter('sergio')" id="filter-sergio" class="filter-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white">
+                    <i class="fa-solid fa-circle text-rose-500 text-[10px] me-1"></i> Apenas Sérgio
+                </button>
+                <button onclick="setFilter('extras')" id="filter-extras" class="filter-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap text-amber-600 dark:text-amber-400 hover:text-amber-700">
+                    <i class="fa-solid fa-star text-xs me-1"></i> Somente Extras
+                </button>
+            </div>
+
+            <div class="hidden lg:flex items-center gap-3 text-xs font-medium text-gray-500">
+                <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-green-500"></span> Jefferson</span>
+                <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-rose-500"></span> Sérgio</span>
+                <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-blue-500"></span> Gérson Felipe</span>
+            </div>
+        </section>
+
+        <!-- Calendar Grid Section -->
+        <section class="rounded-oneui bg-oneui-cardLight dark:bg-oneui-cardDark border border-gray-100 dark:border-gray-800 shadow-oneui p-4 sm:p-6 mb-8">
+            <div class="grid grid-cols-7 gap-2 mb-4 text-center font-bold text-xs uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                <div class="py-2 text-rose-500">Domingo</div>
+                <div class="py-2">Segunda</div>
+                <div class="py-2">Terça</div>
+                <div class="py-2">Quarta</div>
+                <div class="py-2">Quinta</div>
+                <div class="py-2">Sexta</div>
+                <div class="py-2 text-blue-500">Sábado</div>
+            </div>
+
+            <div id="calendarGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+                <!-- Rendered dynamically via JavaScript -->
+            </div>
+        </section>
+
+        <section class="p-6 rounded-oneui bg-gradient-to-r from-blue-500/10 via-indigo-500/10 to-purple-500/10 border border-blue-200/30 dark:border-blue-800/30 mb-8 no-print">
+            <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                <div class="w-12 h-12 rounded-2xl bg-oneui-accent text-white flex items-center justify-center text-xl shrink-0 shadow-lg shadow-blue-500/30">
+                    <i class="fa-solid fa-cloud-check"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-base text-gray-900 dark:text-white">Conexão com o Supabase Ativa</h3>
+                    <p class="text-xs sm:text-sm text-gray-600 dark:text-gray-300 mt-1">
+                        Seus dados são salvos de forma sincronizada na nuvem. Altere qualquer turno para atualização imediata!
+                    </p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Modal for Editing Day Shift -->
+    <div id="editModal" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 opacity-0 pointer-events-none transition-all duration-300">
+        <div onclick="closeEditModal()" class="absolute inset-0 bg-black/40 dark:bg-black/70 backdrop-blur-md"></div>
+
+        <div id="editModalBox" class="relative w-full sm:max-w-md bg-white dark:bg-oneui-cardDark rounded-t-oneui sm:rounded-oneui shadow-2xl p-6 transform translate-y-full sm:translate-y-8 transition-all duration-300 border border-gray-100 dark:border-gray-800">
+            <div class="w-12 h-1.5 bg-gray-300 dark:bg-gray-700 rounded-full mx-auto mb-4 sm:hidden"></div>
+
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-2xl bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center text-lg">
+                        <i class="fa-solid fa-pen-to-square"></i>
+                    </div>
+                    <div>
+                        <h3 id="modalDateTitle" class="font-bold text-lg text-gray-900 dark:text-white">Editar Dia</h3>
+                        <p class="text-xs text-gray-500">Ajuste os plantões diurno e noturno</p>
+                    </div>
+                </div>
+                <button onclick="closeEditModal()" class="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 text-gray-500 flex items-center justify-center">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <form id="editForm" onsubmit="saveShiftChanges(event)" class="space-y-4">
+                <input type="hidden" id="modalDayIndex">
+
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1.5">
+                        <i class="fa-solid fa-sun text-amber-500 me-1"></i> Turno Diurno (07:00 as 19:00)
+                    </label>
+                    <select id="selectDiurno" class="w-full px-4 py-3 rounded-2xl bg-gray-100 dark:bg-gray-800 border-0 text-sm font-semibold focus:ring-2 focus:ring-oneui-accent text-gray-900 dark:text-white">
+                        <option value="Gérson Felipe">Gérson Felipe (Escala Normal)</option>
+                        <option value="Jefferson">Jefferson (Plantão Extra)</option>
+                        <option value="Sérgio">Sérgio (Plantão Extra)</option>
+                        <option value="Vago">-- Turno Vago --</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1.5">
+                        <i class="fa-solid fa-moon text-indigo-400 me-1"></i> Turno Noturno (19:00 as 07:00)
+                    </label>
+                    <select id="selectNoturno" class="w-full px-4 py-3 rounded-2xl bg-gray-100 dark:bg-gray-800 border-0 text-sm font-semibold focus:ring-2 focus:ring-oneui-accent text-gray-900 dark:text-white">
+                        <option value="Sérgio">Sérgio (Escala Normal)</option>
+                        <option value="Jefferson">Jefferson (Escala Normal / Extra)</option>
+                        <option value="Gérson Felipe">Gérson Felipe (Plantão Extra)</option>
+                        <option value="Vago">-- Turno Vago --</option>
+                    </select>
+                </div>
+
+                <div class="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 space-y-2">
+                    <span class="text-xs font-bold text-amber-700 dark:text-amber-400 block mb-1">
+                        <i class="fa-solid fa-star me-1"></i> Marcar Quais Turnos São EXTRAS:
+                    </span>
+                    <label class="flex items-center gap-2 text-xs font-medium cursor-pointer text-gray-800 dark:text-gray-200">
+                        <input type="checkbox" id="checkDiurnoExtra" class="w-4 h-4 rounded text-oneui-accent focus:ring-0">
+                        <span>Diurno é Plantão Extra</span>
+                    </label>
+                    <label class="flex items-center gap-2 text-xs font-medium cursor-pointer text-gray-800 dark:text-gray-200">
+                        <input type="checkbox" id="checkNoturnoExtra" class="w-4 h-4 rounded text-oneui-accent focus:ring-0">
+                        <span>Noturno é Plantão Extra</span>
+                    </label>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1.5">
+                        Observação / Motivo da Troca
+                    </label>
+                    <input type="text" id="inputNotes" placeholder="Ex: Cobertura de folga, Troca amigável..." class="w-full px-4 py-3 rounded-2xl bg-gray-100 dark:bg-gray-800 border-0 text-sm font-medium focus:ring-2 focus:ring-oneui-accent text-gray-900 dark:text-white">
+                </div>
+
+                <div class="flex items-center gap-3 pt-2">
+                    <button type="button" onclick="closeEditModal()" class="w-1/2 py-3 rounded-2xl bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-semibold text-sm active:scale-95">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="w-1/2 py-3 rounded-2xl bg-oneui-accent hover:bg-oneui-accentHover text-white font-semibold text-sm shadow-lg shadow-blue-500/30 active:scale-95">
+                        Salvar Alterações
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal for Generating / Selecting Month -->
+    <div id="nextMonthModal" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 opacity-0 pointer-events-none transition-all duration-300">
+        <div onclick="closeNextMonthModal()" class="absolute inset-0 bg-black/40 dark:bg-black/70 backdrop-blur-md"></div>
+        <div id="nextMonthModalBox" class="relative w-full sm:max-w-md bg-white dark:bg-oneui-cardDark rounded-t-oneui sm:rounded-oneui shadow-2xl p-6 transform translate-y-full sm:translate-y-8 transition-all duration-300 border border-gray-100 dark:border-gray-800">
+            <div class="w-12 h-1.5 bg-gray-300 dark:bg-gray-700 rounded-full mx-auto mb-4 sm:hidden"></div>
+
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-2xl bg-oneui-accent/10 text-oneui-accent flex items-center justify-center text-lg">
+                        <i class="fa-solid fa-calendar-days"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-lg text-gray-900 dark:text-white">Selecionar ou Gerar Mês</h3>
+                        <p class="text-xs text-gray-500">Alterne entre meses antigos ou futuros</p>
+                    </div>
+                </div>
+                <button onclick="closeNextMonthModal()" class="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 text-gray-500 flex items-center justify-center">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1.5">Escolher Mês de Trabalho</label>
+                    <select id="selectTargetMonth" class="w-full px-4 py-3 rounded-2xl bg-gray-100 dark:bg-gray-800 border-0 text-sm font-semibold focus:ring-2 focus:ring-oneui-accent text-gray-900 dark:text-white">
+                        <option value="11|2026">Novembro 2026 (30 dias)</option>
+                        <option value="12|2026">Dezembro 2026 (31 dias)</option>
+                        <option value="1|2027">Janeiro 2027 (31 dias)</option>
+                        <option value="2|2027">Fevereiro 2027 (28 dias)</option>
+                        <option value="3|2027">Março 2027 (31 dias)</option>
+                    </select>
+                </div>
+                <p class="text-xs text-gray-500 leading-relaxed bg-blue-500/10 p-3 rounded-xl border border-blue-500/20">
+                    <i class="fa-solid fa-info-circle text-oneui-accent me-1"></i> Ao mudar o mês, o sistema sincroniza os dados gravados no banco do Supabase.
+                </p>
+
+                <div class="flex items-center gap-3 pt-2">
+                    <button type="button" onclick="closeNextMonthModal()" class="w-1/2 py-3 rounded-2xl bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-semibold text-sm active:scale-95">Cancelar</button>
+                    <button type="button" onclick="confirmGenerateMonth()" class="w-1/2 py-3 rounded-2xl bg-oneui-accent hover:bg-oneui-accentHover text-white font-semibold text-sm shadow-lg shadow-blue-500/30 active:scale-95">Carregar Mês</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-6 right-6 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
+        <div class="glass-oneui px-5 py-3 rounded-2xl shadow-xl border border-gray-200/50 dark:border-gray-700/50 flex items-center gap-3">
+            <div id="toastIcon" class="w-8 h-8 rounded-xl bg-green-500/20 text-green-500 flex items-center justify-center text-sm font-bold">
+                <i class="fa-solid fa-check"></i>
+            </div>
+            <span id="toastMessage" class="text-xs sm:text-sm font-semibold text-gray-800 dark:text-gray-100">
+                Escala atualizada com sucesso!
+            </span>
+        </div>
+    </div>
+
+    <!-- JavaScript Application Logic with Supabase Credential Integration -->
+    <script>
+        // CREDENCIAIS DO SUPABASE INSERIDAS
+        const SUPABASE_URL = 'https://darmbqqconhabsbxvhsn.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhcm1icXFjb25oYWJzYnh2aHNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMyMTI4NDMsImV4cCI6MjEwODc4ODg0M30.NSGSX8IBItnqhphqeGN-LIunLwOc0PZYjV4ohazLOiU';
+        
+        const supabaseClient = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+
+        let currentMonthKey = '11|2026';
+        let currentFilter = 'all';
+        let scheduleData = [];
+
+        const defaultNovemberSchedule = [
+            { day: 1, dateStr: '01/nov', weekDay: 0, diurno: 'Gérson Felipe', noturno: 'Sérgio', diurnoExtra: false, noturnoExtra: false, notes: '' },
+            { day: 2, dateStr: '02/nov', weekDay: 1, diurno: '', noturno: 'Jefferson', diurnoExtra: false, noturnoExtra: false, notes: 'Turno Vago Diurno' },
+            { day: 3, dateStr: '03/nov', weekDay: 2, diurno: 'Gérson Felipe', noturno: 'Sérgio', diurnoExtra: false, noturnoExtra: false, notes: '' },
+            { day: 4, dateStr: '04/nov', weekDay: 3, diurno: '', noturno: 'Jefferson', diurnoExtra: false, noturnoExtra: false, notes: '' },
+            { day: 5, dateStr: '05/nov', weekDay: 4, diurno: 'Gérson Felipe', noturno: 'Sérgio', diurnoExtra: false, noturnoExtra: false, notes: '' },
+            { day: 6, dateStr: '06/nov', weekDay: 5, diurno: '', noturno: 'Jefferson', diurnoExtra: false, noturnoExtra: false, notes: '' },
+            { day: 7, dateStr: '07/nov', weekDay: 6, diurno: 'Gérson Felipe', noturno: 'Sérgio', diurnoExtra: false, noturnoExtra: false, notes: '' },
+            { day: 8, dateStr: '08/nov', weekDay: 0, diurno: '', noturno: 'Jefferson', diurnoExtra: false, noturnoExtra: false, notes: '' },
+            { day: 9, dateStr: '09/nov', weekDay: 1, diurno: 'Gérson Felipe', noturno: 'Sérgio', diurnoExtra: false, noturnoExtra: false, notes: '' },
+            { day: 10, dateStr: '10/nov', weekDay: 2, diurno: '', noturno: 'Jefferson', diurnoExtra: false, noturnoExtra: false, notes: '' },
+            { day: 11, dateStr: '11/nov', weekDay: 3, diurno: 'Gérson Felipe', noturno: 'Sérgio', diurnoExtra: false, noturnoExtra: false, notes: '' },
+            { day: 12, dateStr: '12/nov', weekDay: 4, diurno: '', noturno: 'Jefferson', diurnoExtra: false, noturnoExtra: false, notes: '' },
+            { day: 13, dateStr: '13/nov', weekDay: 5, diurno: 'Gérson Felipe', noturno: 'Sérgio', diurnoExtra: false, noturnoExtra: false, notes: '' },
+            { day: 14, dateStr: '14/nov', weekDay: 6, diurno: '', noturno: 'Jefferson', diurnoExtra: false, noturnoExtra: false, notes: '' },
+            { day: 15, dateStr: '15/nov', weekDay: 0, diurno: 'Gérson Felipe', noturno: 'Sérgio', diurnoExtra: false, noturnoExtra: false, notes: '' },
+            { day: 16, dateStr: '16/nov', weekDay: 1, diurno: '', noturno: 'Jefferson', diurnoExtra: false, noturnoExtra: false, notes: '' },
+            { day: 17, dateStr: '17/nov', weekDay: 2, diurno: 'Gérson Felipe', noturno: 'Sérgio', diurnoExtra: false, noturnoExtra: false, notes: '' },
+            { day: 18, dateStr: '18/nov', weekDay: 3, diurno: '', noturno: 'Jefferson', diurnoExtra: false, noturnoExtra: false, notes: '' },
+            { day: 19, dateStr: '19/nov', weekDay: 4, diurno: 'Gérson Felipe', noturno: 'Sérgio', diurnoExtra: false, noturnoExtra: false, notes: '' },
+            { day: 20, dateStr: '20/nov', weekDay: 5, diurno: '', noturno: 'Jefferson', diurnoExtra: false, noturnoExtra: false, notes: '' },
+            { day: 21, dateStr: '21/nov', weekDay: 6, diurno: 'Gérson Felipe', noturno: 'Sérgio', diurnoExtra: false, noturnoExtra: false, notes: '' },
+            { day: 22, dateStr: '22/nov', weekDay: 0, diurno: '', noturno: 'Jefferson', diurnoExtra: false, noturnoExtra: false, notes: '' },
+            { day: 23, dateStr: '23/nov', weekDay: 1, diurno: 'Gérson Felipe', noturno: 'Sérgio', diurnoExtra: false, noturnoExtra: false, notes: '' },
+            { day: 24, dateStr: '24/nov', weekDay: 2, diurno: '', noturno: 'Jefferson', diurnoExtra: false, noturnoExtra: false, notes: '' },
+            { day: 25, dateStr: '25/nov', weekDay: 3, diurno: 'Gérson Felipe', noturno: 'Sérgio', diurnoExtra: false, noturnoExtra: false, notes: '' },
+            { day: 26, dateStr: '26/nov', weekDay: 4, diurno: '', noturno: 'Jefferson', diurnoExtra: false, noturnoExtra: false, notes: '' },
+            { day: 27, dateStr: '27/nov', weekDay: 5, diurno: 'Gérson Felipe', noturno: 'Sérgio', diurnoExtra: false, noturnoExtra: false, notes: '' },
+            { day: 28, dateStr: '28/nov', weekDay: 6, diurno: '', noturno: 'Jefferson', diurnoExtra: false, noturnoExtra: false, notes: '' },
+            { day: 29, dateStr: '29/nov', weekDay: 0, diurno: 'Gérson Felipe', noturno: 'Sérgio', diurnoExtra: false, noturnoExtra: false, notes: '' },
+            { day: 30, dateStr: '30/nov', weekDay: 1, diurno: '', noturno: 'Jefferson', diurnoExtra: false, noturnoExtra: false, notes: '' }
+        ];
+
+        async function loadSchedule() {
+            if (!supabaseClient) {
+                scheduleData = defaultNovemberSchedule;
+                renderApp();
+                return;
+            }
+
+            try {
+                let { data, error } = await supabaseClient
+                    .from('plantoes_escala')
+                    .select('*')
+                    .eq('month_key', currentMonthKey)
+                    .single();
+
+                if (data && data.schedule_json) {
+                    scheduleData = data.schedule_json;
+                } else {
+                    scheduleData = JSON.parse(JSON.stringify(defaultNovemberSchedule));
+                }
+            } catch (e) {
+                scheduleData = defaultNovemberSchedule;
+            }
+            renderApp();
+        }
+
+        async function saveScheduleToSupabase() {
+            if (!supabaseClient) return;
+            try {
+                await supabaseClient
+                    .from('plantoes_escala')
+                    .upsert({ month_key: currentMonthKey, schedule_json: scheduleData }, { onConflict: 'month_key' });
+            } catch (e) {
+                console.error("Erro ao salvar no Supabase", e);
+            }
+        }
+
+        function renderApp() {
+            renderCalendar();
+            updateStats();
+        }
+
+        function renderCalendar() {
+            const grid = document.getElementById('calendarGrid');
+            grid.innerHTML = '';
+
+            let filtered = scheduleData.filter(item => {
+                if (currentFilter === 'all') return true;
+                if (currentFilter === 'jefferson') return item.diurno === 'Jefferson' || item.noturno === 'Jefferson';
+                if (currentFilter === 'gerson') return item.diurno === 'Gérson Felipe' || item.noturno === 'Gérson Felipe';
+                if (currentFilter === 'sergio') return item.diurno === 'Sérgio' || item.noturno === 'Sérgio';
+                if (currentFilter === 'extras') return item.diurnoExtra || item.noturnoExtra;
+                return true;
+            });
+
+            filtered.forEach((item, index) => {
+                const card = document.createElement('div');
+                card.className = `p-4 rounded-2xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-800 flex flex-col justify-between cursor-pointer hover:shadow-md transition-all`;
+                card.onclick = () => openEditModal(scheduleData.indexOf(item));
+
+                card.innerHTML = `
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs font-bold text-gray-400">${item.dateStr}</span>
+                        <span class="text-xs font-semibold px-2 py-0.5 rounded bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300">Dia ${item.day}</span>
+                    </div>
+                    <div class="space-y-2 my-2 text-xs">
+                        <div class="p-2 rounded-xl bg-amber-500/10 text-amber-800 dark:text-amber-300 font-semibold flex items-center justify-between">
+                            <span><i class="fa-solid fa-sun me-1"></i> ${item.diurno || 'Vago'}</span>
+                            ${item.diurnoExtra ? '<span class="text-[10px] bg-amber-500 text-white px-1.5 rounded">EXTRA</span>' : ''}
+                        </div>
+                        <div class="p-2 rounded-xl bg-indigo-500/10 text-indigo-800 dark:text-indigo-300 font-semibold flex items-center justify-between">
+                            <span><i class="fa-solid fa-moon me-1"></i> ${item.noturno || 'Vago'}</span>
+                            ${item.noturnoExtra ? '<span class="text-[10px] bg-indigo-500 text-white px-1.5 rounded">EXTRA</span>' : ''}
+                        </div>
+                    </div>
+                    ${item.notes ? `<p class="text-[10px] text-gray-400 italic truncate"><i class="fa-solid fa-comment me-1"></i>${item.notes}</p>` : ''}
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function updateStats() {
+            let jeffExtras = 0;
+            let gersonExtras = 0;
+            let sergioShifts = 0;
+            let totalExtras = 0;
+
+            scheduleData.forEach(item => {
+                if (item.diurno === 'Jefferson' && item.diurnoExtra) { jeffExtras++; totalExtras++; }
+                if (item.noturno === 'Jefferson' && item.noturnoExtra) { jeffExtras++; totalExtras++; }
+                if (item.diurno === 'Gérson Felipe' && item.diurnoExtra) { gersonExtras++; totalExtras++; }
+                if (item.noturno === 'Gérson Felipe' && item.noturnoExtra) { gersonExtras++; totalExtras++; }
+                if (item.diurno === 'Sérgio' && item.diurnoExtra) { totalExtras++; }
+                if (item.noturno === 'Sérgio') { sergioShifts++; }
+            });
+
+            document.getElementById('statJeffersonExtras').innerText = jeffExtras;
+            document.getElementById('statJeffersonHours').innerText = `${jeffExtras * 12}h`;
+            document.getElementById('statGersonExtras').innerText = gersonExtras;
+            document.getElementById('statGersonHours').innerText = `${gersonExtras * 12}h`;
+            document.getElementById('statSergioShifts').innerText = sergioShifts;
+            document.getElementById('statTotalExtras').innerText = totalExtras;
+        }
+
+        function setFilter(filter) {
+            currentFilter = filter;
+            document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('bg-white', 'dark:bg-gray-700', 'text-gray-900', 'dark:text-white', 'shadow-sm'));
+            document.getElementById(`filter-${filter}`).classList.add('bg-white', 'dark:bg-gray-700', 'text-gray-900', 'dark:text-white', 'shadow-sm');
+            renderCalendar();
+        }
+
+        function openEditModal(index) {
+            const item = scheduleData[index];
+            document.getElementById('modalDayIndex').value = index;
+            document.getElementById('modalDateTitle').innerText = `Editar Dia ${item.day} (${item.dateStr})`;
+            document.getElementById('selectDiurno').value = item.diurno;
+            document.getElementById('selectNoturno').value = item.noturno;
+            document.getElementById('checkDiurnoExtra').checked = item.diurnoExtra;
+            document.getElementById('checkNoturnoExtra').checked = item.noturnoExtra;
+            document.getElementById('inputNotes').value = item.notes;
+
+            const modal = document.getElementById('editModal');
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            document.getElementById('editModalBox').classList.remove('translate-y-full', 'sm:translate-y-8');
+        }
+
+        function closeEditModal() {
+            const modal = document.getElementById('editModal');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            document.getElementById('editModalBox').classList.add('translate-y-full', 'sm:translate-y-8');
+        }
+
+        function saveShiftChanges(e) {
+            e.preventDefault();
+            const index = parseInt(document.getElementById('modalDayIndex').value);
+            
+            scheduleData[index].diurno = document.getElementById('selectDiurno').value;
+            scheduleData[index].noturno = document.getElementById('selectNoturno').value;
+            scheduleData[index].diurnoExtra = document.getElementById('checkDiurnoExtra').checked;
+            scheduleData[index].noturnoExtra = document.getElementById('checkNoturnoExtra').checked;
+            scheduleData[index].notes = document.getElementById('inputNotes').value;
+
+            saveScheduleToSupabase();
+            closeEditModal();
+            renderApp();
+            showToast('Plantão atualizado com sucesso!');
+        }
+
+        function openNextMonthModal() {
+            const modal = document.getElementById('nextMonthModal');
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            document.getElementById('nextMonthModalBox').classList.remove('translate-y-full', 'sm:translate-y-8');
+        }
+
+        function closeNextMonthModal() {
+            const modal = document.getElementById('nextMonthModal');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            document.getElementById('nextMonthModalBox').classList.add('translate-y-full', 'sm:translate-y-8');
+        }
+
+        async function confirmGenerateMonth() {
+            const val = document.getElementById('selectTargetMonth').value;
+            currentMonthKey = val;
+            
+            const [month, year] = val.split('|');
+            const monthNames = {'1':'Janeiro', '2':'Fevereiro', '3':'Março', '11':'Novembro', '12':'Dezembro'};
+            document.getElementById('currentMonthLabel').innerText = `${monthNames[month] || 'Mês'} ${year}`;
+
+            await loadSchedule();
+            closeNextMonthModal();
+            showToast(`Mês carregado com sucesso!`);
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastMessage').innerText = msg;
+            toast.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
+            }, 3000);
+        }
+
+        function toggleDarkMode() {
+            document.documentElement.classList.toggle('dark');
+            const icon = document.getElementById('themeIcon');
+            icon.classList.toggle('fa-moon');
+            icon.classList.toggle('fa-sun');
+        }
+
+        function resetDataPrompt() {
+            if(confirm("Deseja restaurar a escala padrão deste mês?")) {
+                scheduleData = JSON.parse(JSON.stringify(defaultNovemberSchedule));
+                saveScheduleToSupabase();
+                renderApp();
+                showToast("Escala restaurada!");
+            }
+        }
+
+        window.onload = () => {
+            loadSchedule();
+        };
+    </script>
+</body>
+</html>
